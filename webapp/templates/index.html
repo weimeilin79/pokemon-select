@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokémon Recommender</title>
+    <!-- Link to the CSS file -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Optional: Add a Pokemon-style font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pokémon Recommender</h1>
+            <img src="{{ url_for('static', filename='pokeball.png') }}" alt="Pokeball" class="pokeball-icon">
+            <!-- Note: You'll need to add a pokeball.png image to your static folder -->
+        </header>
+
+        <main>
+            <form method="POST" action="/">
+                <label for="query_text">Describe your ideal starter Pokémon:</label>
+                <textarea id="query_text" name="query_text" rows="4" cols="50" required></textarea>
+                <button type="submit">Find Pokémon!</button>
+            </form>
+
+            <!-- Display Error Messages -->
+            {% if error %}
+                <div class="error-message">
+                    <p>Error: {{ error }}</p>
+                </div>
+            {% endif %}
+
+            <!-- Display Pokemon Result -->
+            {% if pokemon %}
+                <article class="result-card">
+                    <h2>Recommended: {{ pokemon.name }}</h2>
+                    <!-- NEW: Explanation Section -->
+                    {% if pokemon.explanation %}
+                    <div class="explanation">
+                        <strong>Why this Pokémon?</strong>
+                        <p>{{ pokemon.explanation }}</p>
+                    </div>
+                    {% endif %}
+                    <!-- End Explanation Section -->
+
+                    <div class="pokemon-details">
+                        {% if pokemon.image_url %}
+                            <img src="{{ pokemon.image_url }}" alt="{{ pokemon.name }}" class="pokemon-image">
+                        {% else %}
+                            <div class="image-placeholder">?</div>
+                        {% endif %}
+                        <p class="pokemon-description">{{ pokemon.description }}</p>
+                    </div>
+                </article>
+            {% endif %}
+        </main>
+
+        <footer>
+            <p>Demo - linchr</p>
+        </footer>
+    </div>
+</body>
+</html>

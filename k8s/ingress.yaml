@@ -1,0 +1,13 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pokemon-app-ingress
+  annotations:
+    # For standard GKE Ingress:
+    kubernetes.io/ingress.class: "gce"
+spec:
+  defaultBackend:
+    service:
+      name: pokemon-app-service
+      port:
+        number: 80

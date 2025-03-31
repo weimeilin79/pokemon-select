@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pokemon-app-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pokemon-app
+  template:
+    metadata:
+      # Optional: Add annotation to ensure proxy starts first if needed
+      # annotations:
+      #   cloudsql.cloud.google.com/proxy-startup-timeout: "2m"
+      labels:
+        app: pokemon-app
+    spec:
+      serviceAccountName: pokemon-app-sa # SA needs roles/cloudsql.client
+      containers:
+      # --- Application Container ---
+      - name: pokemon-app-container
+        image: us-central1-docker.pkg.dev/named-icon-449202-s9/pokemon-app-repo/pokemon-app:latest # Verify this path
+        ports:
+        - containerPort: 8080
+        env:
+        # --- CHANGE DB_HOST and DB_USER ---
+        - name: DB_HOST
+          value: "127.0.0.1" # Connect to proxy sidecar on localhost
+        - name: DB_PORT # Add if your app uses it
+          value: "5432"
+        - name: DB_NAME
+          value: "pokemon_db"
+        - name: DB_USER
+          value: "postgres" # Use the correct user
+        # ---
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: cloudsql-db-credentials
+              key: password
+        - name: BUCKET_NAME
+          value: pokemon-images-named-icon-449202-s9
+        - name: GOOGLE_CLOUD_PROJECT # Or VERTEX_PROJECT depending on app code
+          value: named-icon-449202-s9
+        resources: # Adjusted limits/requests slightly based on your input
+          requests:
+            memory: "256Mi" # Start lower? 1Gi request is large
+            cpu: "100m"
+          limits:
+            memory: "2Gi" # 4Gi limit seems very high unless needed
+            cpu: "700m"
+
+        readinessProbe:
+          httpGet:
+            path: / # Or a specific /healthz endpoint
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: / # Or a specific /healthz endpoint
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+
+      # --- NEW: Cloud SQL Proxy Sidecar Container ---
+      - name: cloud-sql-proxy
+        # Use the official image
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:latest # Or pin a specific version
+        args:
+          # Use -ip_address_types=PRIVATE for Private IP only
+          # If instance has Public IP too, proxy might default to that without this flag
+          - "--private-ip"
+          # Add structured logging for Cloud Logging integration
+          - "--structured-logs"
+          # Add the instance connection name from your variable
+          # Format: project:region:instance
+          - "named-icon-449202-s9:us-central1:pokemon-db-instance" # Ensure this env var is set when applying YAML
+        securityContext:
+          # Run as non-root user
+          runAsNonRoot: true
+        # Add resource requests/limits for the proxy
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
