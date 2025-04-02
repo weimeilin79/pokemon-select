@@ -15,7 +15,7 @@ spec:
       labels:
         app: pokemon-app
     spec:
-      serviceAccountName: pokemon-app-sa # SA needs roles/cloudsql.client
+      serviceAccountName: ${GKE_SA_NAME} # SA needs roles/cloudsql.client
       containers:
       # --- Application Container ---
       - name: pokemon-app-container
@@ -24,14 +24,14 @@ spec:
         - containerPort: 8080
         env:
         # --- CHANGE DB_HOST and DB_USER ---
-        - name: DB_HOST
+        - name: DB_HOST_PROXY
           value: "127.0.0.1" # Connect to proxy sidecar on localhost
         - name: DB_PORT # Add if your app uses it
           value: "5432"
         - name: DB_NAME
-          value: "pokemon_db"
+          value: "${DB_NAME}"
         - name: DB_USER
-          value: "pokemon_user" # Use the correct user
+          value: "${DB_USER}"
         # ---
         - name: DB_PASSWORD
           valueFrom:
@@ -55,18 +55,18 @@ spec:
             memory: "1Gi" # 4Gi limit seems very high unless needed
             cpu: "700m"
         # --- Optional: Add Probes ---
-        # readinessProbe:
-        #   httpGet:
-        #     path: / # Or a specific /healthz endpoint
-        #     port: 8080
-        #   initialDelaySeconds: 10
-        #   periodSeconds: 5
-        # livenessProbe:
-        #   httpGet:
-        #     path: / # Or a specific /healthz endpoint
-        #     port: 8080
-        #   initialDelaySeconds: 15
-        #   periodSeconds: 20
+        readinessProbe:
+          httpGet:
+            path: / # Or a specific /healthz endpoint
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: / # Or a specific /healthz endpoint
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
 
       # --- NEW: Cloud SQL Proxy Sidecar Container ---
       - name: cloud-sql-proxy
@@ -92,5 +92,3 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "100m"
-
-      # --- Volumes section if needed (not used here) ---

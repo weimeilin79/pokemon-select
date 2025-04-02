@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)  # Get a logger for this module
 app = Flask(__name__)  # Flask automatically looks for templates/ and static/
 
 # Configuration
-DB_HOST = os.environ.get('DB_HOST')
+DB_HOST = os.environ.get('DB_HOST_PROXY')
 DB_NAME = os.environ.get('DB_NAME')
 DB_USER = os.environ.get('DB_USER')
 DB_PASSWORD = os.environ.get('DB_PASSWORD')
@@ -45,7 +45,7 @@ def get_db_connection():
     try:
         conn = psycopg2.connect(
             host=DB_HOST,
-            port=os.environ.get('DB_PORT', 5432), # Use DB_PORT env var if set, else 5432
+            port=5432, # Use DB_PORT env var if set, else 5432
             database=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD
