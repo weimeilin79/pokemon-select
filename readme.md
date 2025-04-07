@@ -4,7 +4,12 @@
 
 Welcome to the Pokémon Recommender! This project is a demonstration of how Google Cloud's AI and infrastructure services can be combined to build a powerful, real-world application.  Imagine you're a new Pokémon trainer, embarking on your journey. Choosing your first Pokemon is a critical decision! This application acts as your personal assistant, leveraging a Retrieval-Augmented Generation (RAG) system to help you make the perfect choice. By understanding your preferences and the unique characteristics of each starter Pokemon, the assistant provides tailored recommendations. This demo showcases the power of Cloud Assist, highlighting how it can guide developers in building complex, cloud-native applications.
 
+![The app](the_app.png)
+
+
 ## Cloud Architecture
+
+![GCP Architecture](cloud_architecture.png)
 
 This application is built on a robust and scalable cloud architecture, leveraging the following Google Cloud services:
 
