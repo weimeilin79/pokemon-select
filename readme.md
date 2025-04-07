@@ -1,7 +1,29 @@
+# Pokémon Recommender : A Cloud Assist Demo
+
+## Overview
+
+Welcome to the Pokémon Recommender! This project is a demonstration of how Google Cloud's AI and infrastructure services can be combined to build a powerful, real-world application.  Imagine you're a new Pokémon trainer, embarking on your journey. Choosing your first Pokemon is a critical decision! This application acts as your personal assistant, leveraging a Retrieval-Augmented Generation (RAG) system to help you make the perfect choice. By understanding your preferences and the unique characteristics of each starter Pokemon, the assistant provides tailored recommendations. This demo showcases the power of Cloud Assist, highlighting how it can guide developers in building complex, cloud-native applications.
+
+## Cloud Architecture
+
+This application is built on a robust and scalable cloud architecture, leveraging the following Google Cloud services:
+
+*   **Kubernetes Engine (GKE):** The core of the application runs on GKE, providing a containerized and orchestrated environment for the web application. This ensures high availability, scalability, and efficient resource utilization.
+*   **Cloud SQL for PostgreSQL:**  We use Cloud SQL as our managed relational database service. It stores the Pokemon data, including their names, descriptions, and other relevant information.
+*   **Vector Database (PostgreSQL Extension):**  To enable semantic search and similarity matching, we utilize the `vector` extension within PostgreSQL. This allows us to store and query Pokemon embeddings, which are numerical representations of their descriptions.
+*   **Vertex AI:** Vertex AI's text embedding model is used to generate the vector embeddings for the Pokemon descriptions. These embeddings are then stored in the vector database, enabling the RAG system to find the most relevant Pokemon based on user input.
+* **Dataflow:** Dataflow is used to load the pokemon data into the database.
+* **Artifact Registry:** Artifact Registry is used to store the container images for the application and dataflow.
+* **Cloud Storage:** Cloud Storage is used to store the pokemon description files and images.
+
+## Installation
+
+Don't forget to set your project ID
 ```
 export PROJECT_ID="<YOUR_PROJECT_ID>" 
+```
 
-
+```
 gcloud services enable \
     compute.googleapis.com \
     container.googleapis.com \
@@ -65,16 +87,7 @@ gcloud compute firewall-rules create dataflow-internal-ports \
     --source-ranges=10.0.0.0/8 \
     --description="Allow internal Dataflow communication on ports 12345-12346"
 
-#Incorrect one
-# Firewall Rule (INTENTIONALLY OMITTING HTTP/HTTPS for first failure)
-# We'll add the necessary rule later using Cloud Assist's guidance
-# Failure Point 1 Setup: We did not create a rule to allow port 80/443 to the GKE nodes.
-gcloud compute firewall-rules create allow-iap-ssh \
-    --network=$NETWORK_NAME \
-    --allow tcp:22 \
-    --source-ranges=35.235.240.0/20 # Allows SSH via IAP
 
-#Correct one
 gcloud compute firewall-rules create allow-http-https-ingress \
     --network=$NETWORK_NAME \
     --direction=INGRESS \
@@ -167,18 +180,11 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:${GKE_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/monitoring.admin"
 
-# Note: We are *not* granting network access needed to reach public GitHub URL yet 
-#Add this one too for correct access 
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-    --member="serviceAccount:${DATAFLOW_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
-    --role="roles/compute.networkUser"
-
 
 # INTENTIONALLY Grant overly permissive role for IAM recommendation demo
 gcloud projects add-iam-policy-binding $PROJECT_ID \
     --member="serviceAccount:${DATAFLOW_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
     --role="roles/editor" # Overly broad! Cloud Assist should flag this.
-
 
 
 
@@ -198,13 +204,13 @@ gsutil cp *.txt $GCS_DATA_FOLDER
 rm *.txt # Clean up local files
 
 
+cd ~/data_prep
 python -m venv env
 source env/bin/activate
 pip install -r df_requirements.txt
 
 
 export IP_TEMP=$(gcloud sql instances describe $SQL_INSTANCE_NAME --format="value(ipAddresses[0].ipAddress)" | grep -oE "^([0-9]{1,3}\.){2}" | sed 's/\.$//' )
-
 
 
 gcloud compute firewall-rules create allow-dataflow-egress-google \
@@ -288,6 +294,8 @@ python dataflow_pipeline.py \
   --sdk_container_image=${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO_NAME}/dataflow/txt-embedding-lib:latest \
   --sdk_location=container
 
+
+cd ~/webapp
 python -m venv env
 source env/bin/activate
 pip install -r requirements.txt
@@ -306,11 +314,10 @@ gcloud artifacts repositories create $AR_REPO_NAME \
     --description="Pokemon app container images"
 
 
-
-
 # Build the image using Cloud Build
 gcloud builds submit --tag ${REGION}-docker.pkg.dev/${PROJECT_ID}/${AR_REPO_NAME}/pokemon-app:latest .
 
+cd ~/k8s
 
 #GKE 
 gcloud container clusters create $CLUSTER_NAME \
@@ -321,18 +328,16 @@ gcloud container clusters create $CLUSTER_NAME \
     --subnetwork=$SUBNET_NAME \
     --service-account="${GKE_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com" \
     --enable-ip-alias \
-    --workload-pool=${PROJECT_ID}.svc.id.goog \
     --scopes="https://www.googleapis.com/auth/cloud-platform" #Grant almost all access to GKE
 
 #Enabling/Updating Workload Identity for cluster 
-#gcloud container clusters update $CLUSTER_NAME \
-#  --zone=$ZONE \
-#  --project=$PROJECT_ID \
-#  --workload-pool=${PROJECT_ID}.svc.id.goog
+gcloud container clusters update $CLUSTER_NAME \
+  --zone=$ZONE \
+  --project=$PROJECT_ID \
+  --workload-pool=${PROJECT_ID}.svc.id.goog
   
 # Get credentials for kubectl
 gcloud container clusters get-credentials $CLUSTER_NAME --zone $ZONE
-
 kubectl create serviceaccount $GKE_SA_NAME -n default
 
 # Variables from before
@@ -364,8 +369,6 @@ sed -i "s|\${DB_NAME}|${DB_NAME}|g" deployment.yaml
 sed -i "s|\${INSTANCE_CONNECTION_NAME}|${INSTANCE_CONNECTION_NAME}|g" deployment.yaml
 
 
-
-
 export GKE_SA_NAME="pokemon-app-sa"
 export GSA_EMAIL="${GKE_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 export KSA_NAME="pokemon-app-sa"
@@ -383,10 +386,6 @@ gcloud iam service-accounts add-iam-policy-binding $GSA_EMAIL \
   --role="roles/iam.workloadIdentityUser" \
   --member="serviceAccount:${PROJECT_ID}.svc.id.goog[${K8S_NAMESPACE}/${KSA_NAME}]"
 
-
-
-#REPLICASET_NAME="pokemon-app-deployment-5f7bc944fb"
-#kubectl describe replicaset $REPLICASET_NAME -n default
 
 export NODE_SA_EMAIL=$(gcloud container node-pools describe $NODE_POOL_NAME   --cluster=$CLUSTER_NAME   --region=$ZONE   --project=$PROJECT_ID   --format='value(config.serviceAccount)')
 echo "Granting Artifact Registry Reader to Node SA $NODE_SA_EMAIL on repo $AR_REPO_NAME..."
@@ -410,37 +409,11 @@ gcloud iam service-accounts add-iam-policy-binding \
 
 
 
-# EDIT FluentBit 
 
-#kubectl get configmap fluentbit-gke-config-v1.4.0 -n kube-system -o yaml > fluentbit-configmap.yaml
-cd k8s
-kubectl apply -f fluentbit-configmap.yaml -n kube-system
-kubectl rollout restart daemonset fluentbit-gke -n kube-system
-
-
-
-#FIX ONE!!
-
-
-
-
+#FIX ONE - don't forget to set the project id
+./rerun.sh
 
 #FIX TWO
-#My Google Kubernetes Engine (GKE) Ingress is not routing external traffic. I have an Ingress resource defined, but when I try to access the application using the Ingress's external IP address, I get a connection error or timeout. What firewall rules are required to allow external traffic to reach my Ingress controller on TCP ports 80 and 443?
-#I'm having trouble exposing my application running in Google Kubernetes Engine (GKE) to the internet. I've created a service, but I can't access it externally. What are the necessary firewall rules to allow external HTTP and HTTPS traffic to reach my application pods?
-#I'm having trouble with external connectivity to my Google Kubernetes Engine (GKE) cluster. I can't access services running in the cluster from the internet. What are the common firewall configurations that might be blocking external traffic?
-
-gcloud compute firewall-rules create allow-http-https \
-    --network=$NETWORK_NAME \
-    --allow tcp:80,tcp:443 \
-    --source-ranges=0.0.0.0/0 # Health checkers + External (adjust 0.0.0.0/0)
-
-#REVERSE FIX
-gcloud compute firewall-rules delete allow-http-https --project=$PROJECT_ID
-
-
-#FIX THREE
-
 
 # Grant permission to read objects from the bucket
 gsutil iam ch \
